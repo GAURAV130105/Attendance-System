@@ -1,0 +1,133 @@
+<html>
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>COOLMEM</title>
+   
+</head>
+<body>
+    <div>
+        <h1>COOL-EGE MEM-ORIES  </h1>
+    </div>
+    <div>
+        <p>Welcome to COOLMEM! Enjoy exploring the interactive features. </p>
+    </div>
+<p>
+    I am going to make a website in which you can save a beautiful memories it gives you a frame for the photos and enhance
+    videos for then saves to database for memories it is going to be legend wait for it dary ..
+
+
+</p>
+</p>
+<style>
+body {
+    background-image: url('WhatsApp Image 2025-08-17 at 9.25.17 PM (1).jpeg');
+    background-size: cover;
+    background-position: center;
+}
+.login-container {
+      background: #fff;
+      padding: 30px;
+      border-radius: 12px;
+      box-shadow: 0 6px 20px rgba(0, 0, 0, 0.2);
+      width: 320px;
+      text-align: center;
+    }
+
+    .login-container h2 {
+      margin-bottom: 20px;
+      color: #333;
+    }
+
+    .login-container input {
+      width: 100%;
+      padding: 12px;
+      margin: 10px 0;
+      border: 1px solid #ccc;
+      border-radius: 8px;
+      outline: none;
+      transition: border 0.3s;
+    }
+
+    .login-container input:focus {
+      border-color: #1e3c72;
+    }
+
+    .login-container button {
+      width: 100%;
+      padding: 12px;
+      background: #1e3c72;
+      color: #fff;
+      border: none;
+      border-radius: 8px;
+      cursor: pointer;
+      font-size: 16px;
+      margin-top: 15px;
+      transition: background 0.3s;
+    }
+
+    .login-container button:hover {
+      background: #2a5298;
+    }
+
+    .show-pass {
+      display: flex;
+      align-items: center;
+      font-size: 14px;
+      color: #555;
+      margin-top: 5px;
+    }
+
+    .show-pass input {
+      width: auto;
+      margin-right: 6px;
+    }
+
+    .error {
+      color: red;
+      font-size: 14px;
+      margin-top: 5px;
+      display: none;
+    }
+  </style>
+</head>
+<body>
+
+  <div class="login-container">
+    <h2>Login</h2>
+    <input type="text" id="username" placeholder="Username">
+    <input type="password" id="password" placeholder="Password">
+    
+    <div class="show-pass">
+      <input type="checkbox" id="togglePassword"> Show Password
+    </div>
+
+    <p class="error" id="errorMsg">Please fill all fields!</p>
+    
+    <button onclick="login()">Login</button>
+  </div>
+
+  <script>
+    const passwordField = document.getElementById("password");
+    const togglePassword = document.getElementById("togglePassword");
+    const errorMsg = document.getElementById("errorMsg");
+
+    togglePassword.addEventListener("change", () => {
+      passwordField.type = togglePassword.checked ? "text" : "password";
+    });
+
+    function login() {
+      const username = document.getElementById("username").value.trim();
+      const password = document.getElementById("password").value.trim();
+
+      if (username === "" || password === "") {
+        errorMsg.style.display = "block";
+      } else {
+        errorMsg.style.display = "none";
+        alert("Login successful ✅ (Dummy login)");
+      }
+    }
+  </script>
+
+</body>
+</html>
