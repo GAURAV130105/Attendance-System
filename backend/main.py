@@ -224,7 +224,7 @@ async def register_student(
         result = save_image_and_get_encoding(student_id, image)
         
         return {
-            "message": f"Student {first_name} {lastName} registered successfully. Encoding calculated.",
+            "message": f"Student {first_name} {last_name} registered successfully. Encoding calculated.",
             "student_id": student_id,
             "encoding_vector_length": result['encoding_vector_length'],
             "storage_path": result['storage_path']
