@@ -1,6 +1,7 @@
 import os
 import shutil
-import json # Added for face_vector serialization
+import json
+import numpy as np
 from typing import List, Union, Annotated
 from datetime import datetime, timedelta
 
@@ -11,259 +12,295 @@ from jose import JWTError, jwt
 from fastapi.security import OAuth2PasswordBearer, OAuth2PasswordRequestForm
 from starlette import status
 
+# --- LIBRARIES FOR REAL IMPLEMENTATION ---
+import face_recognition
+import mysql.connector
+from mysql.connector import Error
+
 # --- SECURITY CONFIGURATION ---
-# IMPORTANT: Change this key and keep it secret in a real application!
 SECRET_KEY = "your-very-secret-key-that-should-be-in-env-vars"
 ALGORITHM = "HS256"
 ACCESS_TOKEN_EXPIRE_MINUTES = 30
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="token")
 
 # --- APP CONFIGURATION ---
-UPLOAD_DIR = "student_images" # Directory where registration images will be stored
+UPLOAD_DIR = "student_images"
 app = FastAPI(
     title="ML Attendance API with JWT",
-    description="Backend for student attendance using FastAPI, Pydantic, MySQL, and JWT Auth."
+    description="Backend for student attendance using FastAPI, MySQL, and Face Recognition."
 )
 
-# Configure CORS to allow the frontend (index.html) to communicate with the API
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"], # In production, restrict this to your frontend URL
+    allow_origins=["*"],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
 
-# --- Pydantic Schemas ---
+# --- DB CONFIGURATION ---
+# UPDATE THESE CREDENTIALS AS NEEDED
+DB_CONFIG = {
+    'host': 'localhost',
+    'user': 'root',      # Default XAMPP/MySQL user
+    'password': '',      # Default XAMPP password (empty)
+    'database': 'attendance_system' # Ensure this matches your schema
+}
 
-class StudentRegistration(BaseModel):
-    """Schema for a new student registration (used for internal data handling)."""
-    student_id: str = Field(..., example="S2025001")
-    first_name: str = Field(..., example="Alex")
-    last_name: str = Field(..., example="Johnson")
-    course_id: int = Field(..., example=101)
+# --- Pydantic Schemas ---
+class Token(BaseModel):
+    access_token: str
+    token_type: str
+
+class TokenData(BaseModel):
+    username: Union[str, None] = None
 
 class AttendanceResponse(BaseModel):
-    """Schema for the attendance capture result."""
     success: bool
     message: str
     student_id: Union[str, None] = None
     name: Union[str, None] = None
     timestamp: str
 
-class Token(BaseModel):
-    """Schema for the JWT response."""
-    access_token: str
-    token_type: str
-
-class TokenData(BaseModel):
-    """Schema for data stored within the JWT payload."""
-    username: Union[str, None] = None
-
 # --- JWT Utility Functions ---
-
 def create_access_token(data: dict, expires_delta: Union[timedelta, None] = None):
-    """Creates a JWT access token."""
     to_encode = data.copy()
-    if expires_delta:
-        expire = datetime.utcnow() + expires_delta
-    else:
-        expire = datetime.utcnow() + timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)
+    expire = datetime.utcnow() + (expires_delta or timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES))
     to_encode.update({"exp": expire, "iat": datetime.utcnow()})
-    encoded_jwt = jwt.encode(to_encode, SECRET_KEY, algorithm=ALGORITHM)
-    return encoded_jwt
+    return jwt.encode(to_encode, SECRET_KEY, algorithm=ALGORITHM)
 
 def verify_token(token: str, credentials_exception):
-    """Verifies and decodes the JWT."""
     try:
         payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
         user_id: str = payload.get("sub")
         if user_id is None:
             raise credentials_exception
-        token_data = TokenData(username=user_id)
+        return TokenData(username=user_id)
     except JWTError:
         raise credentials_exception
-    return token_data
-
-# Mock User Database/Getter (for Auth and Dependency)
-def get_user_from_db(user_id: str):
-    """Mocks fetching user data based on ID (for authentication context)."""
-    # In a real app, query a 'users' table
-    if user_id == "admin":
-        return {"user_id": "admin", "full_name": "System Administrator"}
-    return None
 
 async def get_current_user(token: Annotated[str, Depends(oauth2_scheme)]):
-    """FastAPI dependency to validate JWT and return the user."""
     credentials_exception = HTTPException(
         status_code=status.HTTP_401_UNAUTHORIZED,
         detail="Could not validate credentials",
         headers={"WWW-Authenticate": "Bearer"},
     )
-    token_data = verify_token(token, credentials_exception)
-    user = get_user_from_db(token_data.username)
-    if user is None:
-        raise credentials_exception
-    return user
+    return verify_token(token, credentials_exception)
 
-# --- ML & DB Utility (Mocked) ---
+# --- Database & ML Utilities ---
 
-def initialize_ml_and_db():
-    """Initializes ML model cache and DB connection."""
-    print("--- 1. Initialize MySQL Connection (SQLAlchemy) ---")
-    # TODO: Initialize SQLAlchemy engine and session here.
-    # e.g., engine = create_engine("mysql+mysqlconnector://user:pass@host/db")
-    
-    print("--- 2. Load Face Encodings into Memory Cache ---")
-    # TODO: Load all existing face vectors from the 'face_encodings' MySQL table
-    # into a structure suitable for real-time comparison.
-    
-    # Ensure the upload directory exists
-    if not os.path.exists(UPLOAD_DIR):
-        os.makedirs(UPLOAD_DIR)
-
-# Call initialization on startup
-initialize_ml_and_db()
-
-
-def save_image_and_get_encoding(student_id: str, image_file: UploadFile):
-    """Saves the image and performs ML processing (mocked)."""
-    # 1. Save the file to disk
-    file_path = os.path.join(UPLOAD_DIR, f"{student_id}_{image_file.filename}")
+def get_db_connection():
+    """Creates and returns a MySQL database connection."""
     try:
-        with open(file_path, "wb") as buffer:
-            shutil.copyfileobj(image_file.file, buffer)
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Failed to save file: {e}")
+        connection = mysql.connector.connect(**DB_CONFIG)
+        if connection.is_connected():
+            return connection
+    except Error as e:
+        print(f"Error connecting to MySQL: {e}")
+        raise HTTPException(status_code=500, detail="Database connection failed")
 
-    # 2. ML Logic Placeholder
-    print(f"--- ML TASK: Processing {file_path} ---")
-    # TODO: Load the image, detect the face, and calculate the 128D encoding vector.
+def load_known_faces():
+    """Loads all face encodings from the database into memory."""
+    known_encodings = []
+    known_student_ids = []
     
-    # Mock Encoding (In a real app, this would be the actual 128D vector)
-    mock_encoding_vector = [0.12, 0.55, 0.01, 0.88] # 4 floats for simplicity here
-    
-    # 3. DB Logic Placeholder
-    print(f"--- DB TASK: Saving encoding for {student_id} to MySQL ---")
-    # TODO: Insert the student info into the 'students' table.
-    # The encoding must be serialized (e.g., json.dumps(mock_encoding_vector))
-    # before storing in the TEXT field of 'face_encodings'.
+    conn = get_db_connection()
+    cursor = conn.cursor(dictionary=True)
+    try:
+        cursor.execute("SELECT student_id, face_vector FROM face_encodings")
+        rows = cursor.fetchall()
+        for row in rows:
+            # Parse JSON string back to list/numpy array
+            encoding = json.loads(row['face_vector'])
+            known_encodings.append(np.array(encoding))
+            known_student_ids.append(row['student_id'])
+    except Error as e:
+        print(f"Error loading faces: {e}")
+    finally:
+        if conn.is_connected():
+            cursor.close()
+            conn.close()
+            
+    return known_encodings, known_student_ids
 
-    return {
-        "encoding_vector_length": len(mock_encoding_vector),
-        "storage_path": file_path
-    }
+# Initialize cache
+print("Loading known faces...")
+# In a production app, you might want to refresh this periodically or on new registration
+# For simplicity, we load it once at startup, but we'll also append to it dynamically on register.
+global_known_encodings, global_known_student_ids = [], []
 
+try:
+    global_known_encodings, global_known_student_ids = load_known_faces()
+    print(f"Loaded {len(global_known_student_ids)} faces from DB.")
+except Exception as e:
+    print(f"Startup Warning: Could not load faces. DB might be empty or unreachable. {e}")
 
-def perform_face_recognition(image_file: UploadFile):
-    """Performs recognition against stored encodings (mocked)."""
-    # 1. ML Logic Placeholder
-    # TODO: Load image_file, detect face, calculate new encoding.
-    
-    # 2. Matching Logic Placeholder
-    # TODO: Compare the new encoding against the cached encodings (from MySQL).
-    
-    # Mock Match Result
-    # Simulate a successful match
-    mock_match_id = "S2025001"
-    mock_student_name = "Alex Johnson"
-    is_recognized = True
-    
-    # For demonstration: If the filename contains 'unknown', simulate failure
-    if 'unknown' in image_file.filename.lower():
-         is_recognized = False
-
-    # 3. DB Logic Placeholder
-    if is_recognized:
-        print(f"--- DB TASK: Logging attendance for {mock_match_id} ---")
-        # TODO: Insert a new record into the 'attendance' table.
-        
-    return is_recognized, mock_match_id, mock_student_name
+if not os.path.exists(UPLOAD_DIR):
+    os.makedirs(UPLOAD_DIR)
 
 # --- API ENDPOINTS ---
 
-@app.get("/")
-def read_root():
-    return {"status": "Attendance API is running. See /docs for endpoints. Use /token to authenticate."}
-
 @app.post("/token", response_model=Token)
 async def login_for_access_token(form_data: Annotated[OAuth2PasswordRequestForm, Depends()]):
-    """Authenticates user and returns a JWT access token."""
-    
-    # --- MOCK CREDENTIAL CHECK ---
-    # In a real app, hash the password (e.g., using passlib) and check against the DB.
     if form_data.username == "admin" and form_data.password == "secret":
-        access_token = create_access_token(
-            data={"sub": form_data.username}
-        )
+        access_token = create_access_token(data={"sub": form_data.username})
         return {"access_token": access_token, "token_type": "bearer"}
-    
-    raise HTTPException(
-        status_code=status.HTTP_401_UNAUTHORIZED,
-        detail="Incorrect username or password",
-        headers={"WWW-Authenticate": "Bearer"},
-    )
+    raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Incorrect username or password")
 
 @app.post("/api/register", response_model=dict)
 async def register_student(
-    current_user: Annotated[dict, Depends(get_current_user)], # PROTECTED ROUTE
+    current_user: Annotated[TokenData, Depends(get_current_user)],
     student_id: str = Form(...),
     first_name: str = Form(...),
     last_name: str = Form(...),
     course_id: int = Form(...),
     image: UploadFile = File(...)
 ):
-    """Registers a new student's face encoding in the database."""
-    print(f"User authenticated: {current_user['user_id']}")
-    
-    # Input Validation (e.g., check if student_id already exists)
-    if student_id == "S2025002":
-        raise HTTPException(status_code=409, detail="Student ID already registered.")
-        
+    # 1. Check if student_id already exists in DB
+    conn = get_db_connection()
+    cursor = conn.cursor()
     try:
-        result = save_image_and_get_encoding(student_id, image)
+        cursor.execute("SELECT student_id FROM students WHERE student_id = %s", (student_id,))
+        if cursor.fetchone():
+            raise HTTPException(status_code=409, detail=f"Student ID {student_id} is already registered.")
+    finally:
+        cursor.close()
+        conn.close()
+
+    # 2. Process Image & Generate Encoding
+    file_path = os.path.join(UPLOAD_DIR, f"{student_id}_{image.filename}")
+    with open(file_path, "wb") as buffer:
+        shutil.copyfileobj(image.file, buffer)
+
+    # Load image with face_recognition
+    image_data = face_recognition.load_image_file(file_path)
+    encodings = face_recognition.face_encodings(image_data)
+
+    if len(encodings) == 0:
+        os.remove(file_path) # Cleanup
+        raise HTTPException(status_code=400, detail="No face detected in the image. Please try again.")
+    
+    if len(encodings) > 1:
+        os.remove(file_path)
+        raise HTTPException(status_code=400, detail="Multiple faces detected. Please ensure only one person is in the frame.")
+
+    new_encoding = encodings[0]
+
+    # 3. Check for Duplicate Face (Prevent re-registration of same person)
+    # Compare against all known faces
+    if len(global_known_encodings) > 0:
+        matches = face_recognition.compare_faces(global_known_encodings, new_encoding, tolerance=0.5)
+        if True in matches:
+            # Find who it matches
+            match_index = matches.index(True)
+            existing_id = global_known_student_ids[match_index]
+            os.remove(file_path)
+            raise HTTPException(status_code=409, detail=f"This person is already registered as {existing_id}.")
+
+    # 4. Save to Database
+    conn = get_db_connection()
+    cursor = conn.cursor()
+    try:
+        # Insert into students
+        cursor.execute(
+            "INSERT INTO students (student_id, first_name, last_name) VALUES (%s, %s, %s)",
+            (student_id, first_name, last_name)
+        )
         
-        return {
-            "message": f"Student {first_name} {last_name} registered successfully. Encoding calculated.",
-            "student_id": student_id,
-            "encoding_vector_length": result['encoding_vector_length'],
-            "storage_path": result['storage_path']
-        }
-    except Exception as e:
-        print(f"Registration Error: {e}")
-        raise HTTPException(status_code=500, detail="Internal server error during registration.")
+        # Insert into face_encodings
+        # Serialize numpy array to list then to JSON string
+        encoding_json = json.dumps(new_encoding.tolist())
+        cursor.execute(
+            "INSERT INTO face_encodings (student_id, face_vector, image_path) VALUES (%s, %s, %s)",
+            (student_id, encoding_json, file_path)
+        )
+        
+        conn.commit()
+        
+        # Update memory cache
+        global_known_encodings.append(new_encoding)
+        global_known_student_ids.append(student_id)
+        
+        return {"message": f"Student {first_name} {last_name} ({student_id}) registered successfully."}
+
+    except Error as e:
+        conn.rollback()
+        print(f"DB Error: {e}")
+        raise HTTPException(status_code=500, detail="Database error during registration.")
+    finally:
+        cursor.close()
+        conn.close()
 
 
 @app.post("/api/capture", response_model=AttendanceResponse)
 async def capture_attendance(
-    current_user: Annotated[dict, Depends(get_current_user)], # PROTECTED ROUTE
+    current_user: Annotated[TokenData, Depends(get_current_user)],
     image: UploadFile = File(...)
 ):
-    """Captures an image, runs face recognition, and logs attendance."""
-    print(f"User authenticated: {current_user['user_id']}")
+    # 1. Load Image
+    # We can load directly from the spooled file without saving to disk first for speed,
+    # but face_recognition needs a file-like object or numpy array.
+    # Saving temp file is safer for now.
+    temp_filename = f"temp_{datetime.utcnow().timestamp()}.jpg"
+    with open(temp_filename, "wb") as buffer:
+        shutil.copyfileobj(image.file, buffer)
 
-    recognized, student_id, student_name = perform_face_recognition(image)
-    
-    timestamp = str(datetime.utcnow().isoformat() + "Z") # Use current time
+    timestamp = datetime.utcnow().isoformat() + "Z"
 
-    if recognized:
-        # Mock student ID and name if recognized successfully (since the ML part is mocked)
-        if not student_id:
-             student_id = "S2025001"
-             student_name = "Alex Johnson"
+    try:
+        image_data = face_recognition.load_image_file(temp_filename)
+        encodings = face_recognition.face_encodings(image_data)
 
-        return AttendanceResponse(
-            success=True,
-            message=f"Attendance recorded for {student_name} ({student_id}).",
-            student_id=student_id,
-            name=student_name,
-            timestamp=timestamp
-        )
-    else:
-        return AttendanceResponse(
-            success=False,
-            message="Face not recognized. Please register or try again.",
-            student_id=None,
-            name=None,
-            timestamp=timestamp
-        )
+        if len(encodings) == 0:
+            return AttendanceResponse(success=False, message="No face detected.", timestamp=timestamp)
+
+        # Use the first face found
+        unknown_encoding = encodings[0]
+
+        # 2. Compare with Known Faces
+        if not global_known_encodings:
+             return AttendanceResponse(success=False, message="No registered students in database.", timestamp=timestamp)
+
+        # Calculate distances to find the best match
+        face_distances = face_recognition.face_distance(global_known_encodings, unknown_encoding)
+        best_match_index = np.argmin(face_distances)
+        
+        # Tolerance: Lower is stricter. 0.6 is default, 0.5 is better for security.
+        if face_distances[best_match_index] < 0.5:
+            student_id = global_known_student_ids[best_match_index]
+            
+            # 3. Fetch Student Details & Log Attendance
+            conn = get_db_connection()
+            cursor = conn.cursor(dictionary=True)
+            try:
+                # Get Name
+                cursor.execute("SELECT first_name, last_name FROM students WHERE student_id = %s", (student_id,))
+                student = cursor.fetchone()
+                student_name = f"{student['first_name']} {student['last_name']}" if student else "Unknown"
+
+                # Log to DB
+                cursor.execute(
+                    "INSERT INTO attendance (student_id, status) VALUES (%s, 'PRESENT')",
+                    (student_id,)
+                )
+                conn.commit()
+                
+                return AttendanceResponse(
+                    success=True,
+                    message="Attendance recorded.",
+                    student_id=student_id,
+                    name=student_name,
+                    timestamp=timestamp
+                )
+            except Error as e:
+                print(f"DB Error: {e}")
+                return AttendanceResponse(success=False, message="Database error logging attendance.", timestamp=timestamp)
+            finally:
+                cursor.close()
+                conn.close()
+        else:
+            return AttendanceResponse(success=False, message="Face not recognized.", timestamp=timestamp)
+
+    finally:
+        if os.path.exists(temp_filename):
+            os.remove(temp_filename)

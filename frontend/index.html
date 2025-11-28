@@ -1,379 +1,557 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>ML Student Attendance System</title>
+    <title>Nexus Attendance | AI Powered</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&display=swap" rel="stylesheet">
     <style>
-        body { 
-            font-family: system-ui, -apple-system, sans-serif;
-            background-color: #f7fafc;
+        :root {
+            --primary: #6366f1;
+            --primary-hover: #4f46e5;
+            --bg-dark: #0f172a;
+            --card-bg: rgba(30, 41, 59, 0.7);
+            --text-main: #f8fafc;
+            --text-muted: #94a3b8;
+            --glass-border: rgba(255, 255, 255, 0.08);
+            --success: #10b981;
+            --error: #ef4444;
+        }
+
+        * {
+            box-sizing: border-box;
             margin: 0;
-            padding: 16px;
+            padding: 0;
         }
-        .card { 
-            background: white;
-            border-radius: 0.75rem;
-            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
-            padding: 1.5rem;
-            margin-bottom: 2rem;
+
+        body {
+            font-family: 'Outfit', sans-serif;
+            background-color: var(--bg-dark);
+            background-image:
+                radial-gradient(at 0% 0%, rgba(99, 102, 241, 0.15) 0px, transparent 50%),
+                radial-gradient(at 100% 0%, rgba(168, 85, 247, 0.15) 0px, transparent 50%);
+            color: var(--text-main);
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            padding: 2rem;
         }
-        input, button {
-            width: 100%;
-            padding: 0.75rem;
-            border-radius: 0.375rem;
-            margin: 0.5rem 0;
+
+        /* --- Components --- */
+        .glass-panel {
+            background: var(--card-bg);
+            backdrop-filter: blur(12px);
+            -webkit-backdrop-filter: blur(12px);
+            border: 1px solid var(--glass-border);
+            border-radius: 1.5rem;
+            box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5);
         }
-        button {
-            background: #4f46e5;
+
+        .btn {
+            background: var(--primary);
             color: white;
             border: none;
+            padding: 0.75rem 1.5rem;
+            border-radius: 0.75rem;
+            font-weight: 600;
             cursor: pointer;
+            transition: all 0.2s ease;
+            font-size: 0.95rem;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            gap: 0.5rem;
         }
-        button:hover {
-            background: #4338ca;
+
+        .btn:hover {
+            background: var(--primary-hover);
+            transform: translateY(-1px);
         }
+
+        .btn:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+            transform: none;
+        }
+
+        .btn-secondary {
+            background: rgba(255, 255, 255, 0.1);
+        }
+
+        .btn-secondary:hover {
+            background: rgba(255, 255, 255, 0.15);
+        }
+
+        input {
+            width: 100%;
+            background: rgba(15, 23, 42, 0.6);
+            border: 1px solid var(--glass-border);
+            color: white;
+            padding: 0.85rem 1rem;
+            border-radius: 0.75rem;
+            margin-bottom: 1rem;
+            font-family: inherit;
+            transition: border-color 0.2s;
+        }
+
+        input:focus {
+            outline: none;
+            border-color: var(--primary);
+        }
+
         label {
-            font-size: 0.875rem;
-            color: #374151;
+            display: block;
+            margin-bottom: 0.5rem;
+            font-size: 0.85rem;
+            color: var(--text-muted);
+        }
+
+        /* --- Layout --- */
+        .header {
+            text-align: center;
+            margin-bottom: 3rem;
+        }
+
+        .header h1 {
+            font-size: 2.5rem;
+            font-weight: 700;
+            background: linear-gradient(to right, #818cf8, #c084fc);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            margin-bottom: 0.5rem;
+        }
+
+        .header p {
+            color: var(--text-muted);
+        }
+
+        .container {
+            width: 100%;
+            max-width: 1200px;
+            display: grid;
+            grid-template-columns: 1fr;
+            gap: 2rem;
+        }
+
+        @media (min-width: 1024px) {
+            .container {
+                grid-template-columns: 1fr 1fr;
+            }
+        }
+
+        .card {
+            padding: 2rem;
+            display: flex;
+            flex-direction: column;
+            height: 100%;
+        }
+
+        .card-title {
+            font-size: 1.5rem;
+            font-weight: 600;
+            margin-bottom: 1.5rem;
+            display: flex;
+            align-items: center;
+            gap: 0.75rem;
+        }
+
+        /* --- Webcam & Video --- */
+        .video-container {
+            width: 100%;
+            aspect-ratio: 4/3;
+            background: #000;
+            border-radius: 1rem;
+            overflow: hidden;
+            position: relative;
+            margin-bottom: 1.5rem;
+            border: 2px solid var(--glass-border);
+        }
+
+        video,
+        canvas {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+            transform: scaleX(-1);
+            /* Mirror effect */
+        }
+
+        .status-badge {
+            position: absolute;
+            top: 1rem;
+            right: 1rem;
+            background: rgba(0, 0, 0, 0.6);
+            padding: 0.25rem 0.75rem;
+            border-radius: 2rem;
+            font-size: 0.75rem;
+            display: flex;
+            align-items: center;
+            gap: 0.4rem;
+            backdrop-filter: blur(4px);
+        }
+
+        .status-dot {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            background: var(--error);
+        }
+
+        .status-dot.active {
+            background: var(--success);
+            box-shadow: 0 0 8px var(--success);
+        }
+
+        /* --- Logs --- */
+        .log-container {
+            flex-grow: 1;
+            background: rgba(15, 23, 42, 0.4);
+            border-radius: 1rem;
+            padding: 1rem;
+            margin-top: 1rem;
+            max-height: 200px;
+            overflow-y: auto;
+            font-size: 0.9rem;
+        }
+
+        .log-item {
+            display: flex;
+            justify-content: space-between;
+            padding: 0.75rem;
+            border-bottom: 1px solid var(--glass-border);
+            animation: slideIn 0.3s ease;
+        }
+
+        .log-item:last-child {
+            border-bottom: none;
+        }
+
+        .log-success {
+            color: var(--success);
+        }
+
+        .log-error {
+            color: var(--error);
+        }
+
+        /* --- Login Modal --- */
+        #login-overlay {
+            position: fixed;
+            inset: 0;
+            background: rgba(15, 23, 42, 0.9);
+            backdrop-filter: blur(8px);
+            z-index: 100;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .login-box {
+            width: 100%;
+            max-width: 400px;
+            padding: 2.5rem;
+        }
+
+        @keyframes slideIn {
+            from {
+                opacity: 0;
+                transform: translateY(10px);
+            }
+
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        .hidden {
+            display: none !important;
         }
     </style>
 </head>
-<body class="bg-gray-100 min-h-screen p-4 sm:p-8">
 
-    <!-- App starts here -->
+<body>
 
-    <div class="max-w-6xl mx-auto">
-        <header class="text-center py-6 mb-8 bg-white rounded-lg card">
-            <h1 class="text-3xl font-bold text-indigo-700 tracking-tight">AI Student Attendance Dashboard</h1>
-            <p class="text-gray-500 mt-1">FastAPI Backend with Face Recognition (Simulated)</p>
-        </header>
-
-        <!-- Login Card -->
-        <div id="login-card" class="bg-white p-6 rounded-xl card border border-gray-300 mb-8 max-w-xl mx-auto">
-            <h2 class="text-2xl font-semibold mb-4 text-gray-800 flex items-center">
-                <svg class="w-6 h-6 mr-2 text-red-500" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 16l-4-4m0 0l4-4m-4 4h14m-5 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3v-1m5-11h10a3 3 0 013 3v1"></path></svg>
-                API Login (Required)
-            </h2>
-            <div id="auth-status" class="text-center p-3 rounded-md bg-green-100 text-green-700 mb-4 hidden">Logged in as **admin**.</div>
-
-            <form id="login-form" class="space-y-4">
-                <p class="text-sm text-red-500 font-semibold">Use credentials: `admin` / `secret`</p>
+    <!-- Login Overlay -->
+    <div id="login-overlay">
+        <div class="glass-panel login-box">
+            <div class="header" style="margin-bottom: 2rem;">
+                <h1>Welcome Back</h1>
+                <p>Please authenticate to access the system</p>
+            </div>
+            <form id="login-form">
                 <div>
-                    <label for="username" class="block text-sm font-medium text-gray-700">Username</label>
-                    <input type="text" id="username" required value="admin" class="mt-1 block w-full border border-gray-300 rounded-md shadow-sm p-3 focus:ring-indigo-500 focus:border-indigo-500">
+                    <label>Username</label>
+                    <input type="text" id="username" value="admin" required>
                 </div>
                 <div>
-                    <label for="password" class="block text-sm font-medium text-gray-700">Password</label>
-                    <input type="password" id="password" required value="secret" class="mt-1 block w-full border border-gray-300 rounded-md shadow-sm p-3 focus:ring-indigo-500 focus:border-indigo-500">
+                    <label>Password</label>
+                    <input type="password" id="password" value="secret" required>
                 </div>
-                <button type="submit" id="login-submit-btn" class="w-full py-3 px-4 border border-transparent rounded-lg shadow-md text-sm font-medium text-white bg-red-600 hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500 transition duration-150 ease-in-out disabled:opacity-50">
-                    Get Access Token
+                <button type="submit" class="btn" style="width: 100%">
+                    <span>Login to Dashboard</span>
+                    <svg width="20" height="20" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                            d="M11 16l-4-4m0 0l4-4m-4 4h14m-5 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3v-1m5-11h10a3 3 0 013 3v1">
+                        </path>
+                    </svg>
                 </button>
-                <div id="login-message" class="text-center p-3 rounded-md hidden"></div>
+                <p id="login-msg"
+                    style="text-align: center; margin-top: 1rem; font-size: 0.9rem; color: var(--error); min-height: 1.2em;">
+                </p>
             </form>
-        </div>
-
-
-        <div class="grid grid-cols-1 lg:grid-cols-2 gap-8" id="main-content" style="filter: blur(4px); pointer-events: none;">
-            <!-- 1. Student Registration Card -->
-            <div id="registration-card" class="bg-white p-6 rounded-xl card border border-indigo-200">
-                <h2 class="text-2xl font-semibold mb-6 text-indigo-600 flex items-center">
-                    <svg class="w-6 h-6 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M18 9v3m0 0v3m0-3h3m-3 0h-3m-2-5a4 4 0 11-8 0 4 4 0 018 0zM3 20a6 6 0 0112 0v1H3v-1z"></path></svg>
-                    New Student Registration
-                </h2>
-                <form id="registration-form" class="space-y-4">
-                    <div>
-                        <label for="reg-id" class="block text-sm font-medium text-gray-700">Student ID (e.g., S2025001)</label>
-                        <input type="text" id="reg-id" required class="mt-1 block w-full border border-gray-300 rounded-md shadow-sm p-3 focus:ring-indigo-500 focus:border-indigo-500" placeholder="Unique Student ID">
-                    </div>
-                    <div class="grid grid-cols-2 gap-4">
-                        <div>
-                            <label for="reg-first-name" class="block text-sm font-medium text-gray-700">First Name</label>
-                            <input type="text" id="reg-first-name" required class="mt-1 block w-full border border-gray-300 rounded-md shadow-sm p-3">
-                        </div>
-                        <div>
-                            <label for="reg-last-name" class="block text-sm font-medium text-gray-700">Last Name</label>
-                            <input type="text" id="reg-last-name" required class="mt-1 block w-full border border-gray-300 rounded-md shadow-sm p-3">
-                        </div>
-                    </div>
-                    <div>
-                        <label for="reg-image" class="block text-sm font-medium text-gray-700">Upload Clear Face Photo (JPG/PNG)</label>
-                        <input type="file" id="reg-image" accept="image/jpeg, image/png" required class="mt-1 block w-full text-sm text-gray-500
-                            file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0
-                            file:text-sm file:font-semibold file:bg-indigo-50 file:text-indigo-700
-                            hover:file:bg-indigo-100">
-                        <p class="text-xs text-gray-400 mt-1">High-quality image required for face encoding.</p>
-                    </div>
-                    <button type="submit" id="reg-submit-btn" class="w-full py-3 px-4 border border-transparent rounded-lg shadow-md text-sm font-medium text-white bg-indigo-600 hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 transition duration-150 ease-in-out disabled:opacity-50">
-                        Register Face & Student
-                    </button>
-                    <div id="reg-message" class="text-center p-3 rounded-md hidden"></div>
-                </form>
-            </div>
-
-            <!-- 2. Attendance Capture Card -->
-            <div id="capture-card" class="bg-white p-6 rounded-xl card border border-green-200">
-                <h2 class="text-2xl font-semibold mb-6 text-green-600 flex items-center">
-                    <svg class="w-6 h-6 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
-                    Capture Attendance
-                </h2>
-                <form id="attendance-form" class="space-y-4">
-                    <div>
-                        <label for="capture-image" class="block text-sm font-medium text-gray-700">Capture Live Photo / Upload File</label>
-                        <input type="file" id="capture-image" accept="image/jpeg, image/png" required class="mt-1 block w-full text-sm text-gray-500
-                            file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0
-                            file:text-sm file:font-semibold file:bg-green-50 file:text-green-700
-                            hover:file:bg-green-100">
-                        <p class="text-xs text-gray-400 mt-1">Image will be used for real-time recognition.</p>
-                    </div>
-                    <button type="submit" id="capture-submit-btn" class="w-full py-3 px-4 border border-transparent rounded-lg shadow-md text-sm font-medium text-white bg-green-600 hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500 transition duration-150 ease-in-out disabled:opacity-50">
-                        Run Face Recognition & Log
-                    </button>
-                    <div id="capture-message" class="text-center p-3 rounded-md hidden"></div>
-                </form>
-
-                <div class="mt-8 pt-6 border-t border-gray-200">
-                    <h3 class="text-xl font-semibold mb-4 text-gray-700">Latest Attendance Log</h3>
-                    <div id="attendance-log" class="space-y-3">
-                        <p class="text-gray-500 italic">No attendance recorded yet. Simulate an API call!</p>
-                    </div>
-                </div>
-            </div>
         </div>
     </div>
 
+    <!-- Main App -->
+    <header class="header">
+        <h1>Nexus Attendance</h1>
+        <p>Advanced Face Recognition System</p>
+    </header>
+
+    <div class="container">
+
+        <!-- Registration Section -->
+        <div class="glass-panel card">
+            <div class="card-title">
+                <svg width="24" height="24" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                        d="M18 9v3m0 0v3m0-3h3m-3 0h-3m-2-5a4 4 0 11-8 0 4 4 0 018 0zM3 20a6 6 0 0112 0v1H3v-1z"></path>
+                </svg>
+                New Registration
+            </div>
+
+            <div class="video-container">
+                <video id="reg-video" autoplay playsinline muted></video>
+                <canvas id="reg-canvas" class="hidden"></canvas>
+                <div class="status-badge">
+                    <div class="status-dot" id="reg-cam-status"></div>Camera
+                </div>
+            </div>
+
+            <form id="reg-form">
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem;">
+                    <div>
+                        <label>First Name</label>
+                        <input type="text" id="reg-first" required placeholder="John">
+                    </div>
+                    <div>
+                        <label>Last Name</label>
+                        <input type="text" id="reg-last" required placeholder="Doe">
+                    </div>
+                </div>
+                <div>
+                    <label>Student ID</label>
+                    <input type="text" id="reg-id" required placeholder="S2025XXX">
+                </div>
+
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem;">
+                    <button type="button" class="btn btn-secondary" id="start-reg-cam">Start Camera</button>
+                    <button type="submit" class="btn" id="reg-btn" disabled>Capture & Register</button>
+                </div>
+            </form>
+            <div id="reg-msg" style="margin-top: 1rem; text-align: center; font-size: 0.9rem;"></div>
+        </div>
+
+        <!-- Attendance Section -->
+        <div class="glass-panel card">
+            <div class="card-title">
+                <svg width="24" height="24" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                        d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                </svg>
+                Live Attendance
+            </div>
+
+            <div class="video-container">
+                <video id="auth-video" autoplay playsinline muted></video>
+                <canvas id="auth-canvas" class="hidden"></canvas>
+                <div class="status-badge">
+                    <div class="status-dot" id="auth-cam-status"></div>Camera
+                </div>
+            </div>
+
+            <div style="display: flex; gap: 1rem; margin-bottom: 1rem;">
+                <button type="button" class="btn btn-secondary" id="start-auth-cam" style="flex: 1;">Start
+                    Camera</button>
+                <button type="button" class="btn" id="scan-btn" style="flex: 1;" disabled>Scan Face</button>
+            </div>
+
+            <div class="log-container" id="attendance-log">
+                <div style="text-align: center; color: var(--text-muted); padding: 1rem;">Waiting for scans...</div>
+            </div>
+        </div>
+
+    </div>
+
     <script>
-        const API_BASE_URL = 'http://127.0.0.1:3000'; // Updated port for the backend API
+        const API_URL = 'http://127.0.0.1:8000';
+        let accessToken = localStorage.getItem('access_token');
 
-        // --- Utility Functions ---
-
-        function showMessage(elementId, message, type) {
-            const el = document.getElementById(elementId);
-            el.innerHTML = message;
-            el.className = `text-center p-3 rounded-md mt-4 block ${type === 'success' ? 'bg-green-100 text-green-700' : 'bg-red-100 text-red-700'}`;
-            el.classList.remove('hidden');
-        }
-
-        function setButtonState(buttonId, isLoading, defaultText) {
-            const btn = document.getElementById(buttonId);
-            btn.disabled = isLoading;
-            btn.textContent = isLoading ? 'Processing...' : defaultText;
-        }
-
-        function getAuthHeader() {
-            const token = localStorage.getItem('access_token');
-            if (token) {
-                return { 'Authorization': `Bearer ${token}` };
+        // --- Camera Logic ---
+        async function startCamera(videoElement, statusDot, btnIdToEnable) {
+            try {
+                const stream = await navigator.mediaDevices.getUserMedia({ video: true });
+                videoElement.srcObject = stream;
+                statusDot.classList.add('active');
+                if (btnIdToEnable) document.getElementById(btnIdToEnable).disabled = false;
+                return true;
+            } catch (err) {
+                console.error("Camera Error:", err);
+                alert("Could not access camera. Please allow permissions.");
+                return false;
             }
-            return {};
         }
 
-        function updateUIForAuth() {
-            const token = localStorage.getItem('access_token');
-            const loginCard = document.getElementById('login-card');
-            const mainContent = document.getElementById('main-content');
-            const authStatus = document.getElementById('auth-status');
-            const loginBtn = document.getElementById('login-submit-btn');
+        function captureFrame(videoElement, canvasElement) {
+            const context = canvasElement.getContext('2d');
+            canvasElement.width = videoElement.videoWidth;
+            canvasElement.height = videoElement.videoHeight;
+            context.drawImage(videoElement, 0, 0, canvasElement.width, canvasElement.height);
+            return new Promise(resolve => canvasElement.toBlob(resolve, 'image/jpeg', 0.95));
+        }
 
-            if (token) {
-                loginCard.style.backgroundColor = '#ecfdf5'; // Greenish tint
-                loginCard.classList.remove('border-gray-300');
-                loginCard.classList.add('border-green-300');
-                document.getElementById('login-form').classList.add('hidden');
-                authStatus.classList.remove('hidden');
-                authStatus.innerHTML = '✅ Successfully **Authenticated**! You can now use the forms below.';
-                mainContent.style.filter = 'none';
-                mainContent.style.pointerEvents = 'auto';
-                loginBtn.textContent = 'Token Acquired';
+        // --- Auth Logic ---
+        function checkAuth() {
+            if (accessToken) {
+                document.getElementById('login-overlay').classList.add('hidden');
             } else {
-                loginCard.style.backgroundColor = '#ffffff';
-                loginCard.classList.add('border-gray-300');
-                loginCard.classList.remove('border-green-300');
-                document.getElementById('login-form').classList.remove('hidden');
-                authStatus.classList.add('hidden');
-                mainContent.style.filter = 'blur(4px)';
-                mainContent.style.pointerEvents = 'none';
-                loginBtn.textContent = 'Get Access Token';
+                document.getElementById('login-overlay').classList.remove('hidden');
             }
         }
-        
-        // --- Login Logic ---
-        document.getElementById('login-form').addEventListener('submit', async function(e) {
+
+        document.getElementById('login-form').addEventListener('submit', async (e) => {
             e.preventDefault();
-            setButtonState('login-submit-btn', true, 'Get Access Token');
-            document.getElementById('login-message').classList.add('hidden');
+            const btn = e.target.querySelector('button');
+            const msg = document.getElementById('login-msg');
+            btn.disabled = true;
 
-            const form = e.target;
-            const username = form.elements['username'].value;
-            const password = form.elements['password'].value;
-
-            const authFormData = new URLSearchParams();
-            authFormData.append('username', username);
-            authFormData.append('password', password);
+            const formData = new URLSearchParams();
+            formData.append('username', document.getElementById('username').value);
+            formData.append('password', document.getElementById('password').value);
 
             try {
-                const response = await fetch(`${API_BASE_URL}/token`, {
+                const res = await fetch(`${API_URL}/token`, {
                     method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/x-www-form-urlencoded'
-                    },
-                    body: authFormData.toString()
+                    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+                    body: formData
                 });
+                const data = await res.json();
 
-                const data = await response.json();
-
-                if (response.ok) {
-                    localStorage.setItem('access_token', data.access_token);
-                    showMessage('login-message', 'Authentication successful! Token received.', 'success');
-                    updateUIForAuth();
+                if (res.ok) {
+                    accessToken = data.access_token;
+                    localStorage.setItem('access_token', accessToken);
+                    checkAuth();
                 } else {
-                    showMessage('login-message', data.detail || 'Login failed. Check credentials.', 'error');
-                    localStorage.removeItem('access_token');
+                    msg.textContent = data.detail || "Login failed";
                 }
-            } catch (error) {
-                console.error('Login API Error:', error);
-                showMessage('login-message', 'Could not connect to FastAPI server. Is it running?', 'error');
+            } catch (err) {
+                msg.textContent = "Server connection failed";
             } finally {
-                setButtonState('login-submit-btn', false, 'Get Access Token');
+                btn.disabled = false;
             }
         });
 
+        // --- Registration ---
+        document.getElementById('start-reg-cam').addEventListener('click', () => {
+            startCamera(document.getElementById('reg-video'), document.getElementById('reg-cam-status'), 'reg-btn');
+        });
 
-        // --- Registration Logic (Protected) ---
-
-        document.getElementById('registration-form').addEventListener('submit', async function(e) {
+        document.getElementById('reg-form').addEventListener('submit', async (e) => {
             e.preventDefault();
-            setButtonState('reg-submit-btn', true, 'Register Face & Student');
-            document.getElementById('reg-message').classList.add('hidden');
-            
-            if (!localStorage.getItem('access_token')) {
-                showMessage('reg-message', 'Authentication required. Please log in first.', 'error');
-                setButtonState('reg-submit-btn', false, 'Register Face & Student');
-                return;
-            }
-
-            const form = e.target;
-            const studentId = form.elements['reg-id'].value;
-            const firstName = form.elements['reg-first-name'].value;
-            const lastName = form.elements['reg-last-name'].value;
-            const imageFile = form.elements['reg-image'].files[0];
-
-            if (!imageFile) {
-                showMessage('reg-message', 'Please select a face image.', 'error');
-                setButtonState('reg-submit-btn', false, 'Register Face & Student');
-                return;
-            }
-
-            // Create FormData object for file upload
-            const formData = new FormData();
-            formData.append('student_id', studentId);
-            formData.append('first_name', firstName);
-            formData.append('last_name', lastName);
-            formData.append('course_id', 101); // Mock course ID
-            formData.append('image', imageFile);
+            const btn = document.getElementById('reg-btn');
+            const msg = document.getElementById('reg-msg');
+            btn.disabled = true;
+            btn.textContent = "Processing...";
+            msg.textContent = "";
 
             try {
-                const response = await fetch(`${API_BASE_URL}/api/register`, {
+                const blob = await captureFrame(document.getElementById('reg-video'), document.getElementById('reg-canvas'));
+                const formData = new FormData();
+                formData.append('student_id', document.getElementById('reg-id').value);
+                formData.append('first_name', document.getElementById('reg-first').value);
+                formData.append('last_name', document.getElementById('reg-last').value);
+                formData.append('course_id', 101);
+                formData.append('image', blob, 'capture.jpg');
+
+                const res = await fetch(`${API_URL}/api/register`, {
                     method: 'POST',
-                    headers: getAuthHeader(), // Include Authorization header
-                    body: formData,
+                    headers: { 'Authorization': `Bearer ${accessToken}` },
+                    body: formData
                 });
+                const data = await res.json();
 
-                const data = await response.json();
-
-                if (response.ok) {
-                    showMessage('reg-message', data.message, 'success');
-                    form.reset(); // Clear form on success
-                } else if (response.status === 401) {
-                    showMessage('reg-message', 'Authentication expired or invalid. Please log in again.', 'error');
-                    localStorage.removeItem('access_token');
-                    updateUIForAuth();
+                if (res.ok) {
+                    msg.innerHTML = `<span style="color: var(--success)">✅ ${data.message}</span>`;
+                    e.target.reset();
                 } else {
-                    showMessage('reg-message', data.detail || 'Registration failed due to server error.', 'error');
+                    msg.innerHTML = `<span style="color: var(--error)">❌ ${data.detail || "Registration failed"}</span>`;
                 }
-            } catch (error) {
-                console.error('Registration API Error:', error);
-                showMessage('reg-message', 'Could not connect to FastAPI server. Is it running?', 'error');
+            } catch (err) {
+                msg.innerHTML = `<span style="color: var(--error)">❌ Error: ${err.message}</span>`;
             } finally {
-                setButtonState('reg-submit-btn', false, 'Register Face & Student');
+                btn.disabled = false;
+                btn.textContent = "Capture & Register";
             }
         });
 
-        // --- Attendance Logic (Protected) ---
+        // --- Attendance ---
+        document.getElementById('start-auth-cam').addEventListener('click', () => {
+            startCamera(document.getElementById('auth-video'), document.getElementById('auth-cam-status'), 'scan-btn');
+        });
 
-        document.getElementById('attendance-form').addEventListener('submit', async function(e) {
-            e.preventDefault();
-            setButtonState('capture-submit-btn', true, 'Run Face Recognition & Log');
-            document.getElementById('capture-message').classList.add('hidden');
-            const logElement = document.getElementById('attendance-log');
-            logElement.innerHTML = '<p class="text-gray-500 italic">Recognizing face...</p>';
-
-            if (!localStorage.getItem('access_token')) {
-                showMessage('capture-message', 'Authentication required. Please log in first.', 'error');
-                setButtonState('capture-submit-btn', false, 'Run Face Recognition & Log');
-                logElement.innerHTML = '<p class="text-red-500 italic">Login required.</p>';
-                return;
-            }
-
-
-            const form = e.target;
-            const imageFile = form.elements['capture-image'].files[0];
-
-            if (!imageFile) {
-                showMessage('capture-message', 'Please select an image to capture.', 'error');
-                setButtonState('capture-submit-btn', false, 'Run Face Recognition & Log');
-                return;
-            }
-
-            const formData = new FormData();
-            formData.append('image', imageFile);
+        document.getElementById('scan-btn').addEventListener('click', async () => {
+            const btn = document.getElementById('scan-btn');
+            const log = document.getElementById('attendance-log');
+            btn.disabled = true;
 
             try {
-                const response = await fetch(`${API_BASE_URL}/api/capture`, {
+                const blob = await captureFrame(document.getElementById('auth-video'), document.getElementById('auth-canvas'));
+                const formData = new FormData();
+                formData.append('image', blob, 'scan.jpg');
+
+                const res = await fetch(`${API_URL}/api/capture`, {
                     method: 'POST',
-                    headers: getAuthHeader(), // Include Authorization header
-                    body: formData,
+                    headers: { 'Authorization': `Bearer ${accessToken}` },
+                    body: formData
                 });
+                const data = await res.json();
 
-                const data = await response.json();
+                const item = document.createElement('div');
+                item.className = 'log-item';
 
-                if (response.ok && data.success) {
-                    showMessage('capture-message', data.message, 'success');
-                    logElement.innerHTML = `
-                        <div class="p-4 bg-green-50 rounded-lg border border-green-200">
-                            <p class="font-semibold text-green-700">PRESENT</p>
-                            <p class="text-sm text-gray-800">Student: ${data.name} (${data.student_id})</p>
-                            <p class="text-xs text-gray-500">Time: ${new Date(data.timestamp).toLocaleTimeString()}</p>
+                if (res.ok && data.success) {
+                    item.innerHTML = `
+                        <div>
+                            <div style="font-weight: 600; color: var(--text-main)">${data.name}</div>
+                            <div style="font-size: 0.8em; color: var(--text-muted)">${data.student_id}</div>
                         </div>
+                        <div class="log-success">PRESENT ${new Date(data.timestamp).toLocaleTimeString()}</div>
                     `;
-                } else if (response.status === 401) {
-                    showMessage('capture-message', 'Authentication expired or invalid. Please log in again.', 'error');
-                    localStorage.removeItem('access_token');
-                    updateUIForAuth();
-                } 
-                else {
-                    showMessage('capture-message', data.message || 'Recognition failed.', 'error');
-                    logElement.innerHTML = `
-                        <div class="p-4 bg-red-50 rounded-lg border border-red-200">
-                            <p class="font-semibold text-red-700">FAILURE</p>
-                            <p class="text-sm text-gray-800">${data.message}</p>
-                        </div>
+                } else {
+                    item.innerHTML = `
+                        <div>Unknown Face</div>
+                        <div class="log-error">${data.message || "Failed"}</div>
                     `;
                 }
-                form.reset();
-            } catch (error) {
-                console.error('Attendance API Error:', error);
-                showMessage('capture-message', 'Could not connect to FastAPI server. Check console for details.', 'error');
-                logElement.innerHTML = '<p class="text-red-500 italic">Connection failed.</p>';
+
+                if (log.children[0]?.textContent === "Waiting for scans...") log.innerHTML = '';
+                log.prepend(item);
+
+            } catch (err) {
+                console.error(err);
             } finally {
-                setButtonState('capture-submit-btn', false, 'Run Face Recognition & Log');
+                btn.disabled = false;
             }
         });
 
-        // Initialize UI on load
-        updateUIForAuth();
-
+        // Init
+        checkAuth();
     </script>
 </body>
+
 </html>
